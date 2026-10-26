@@ -153,8 +153,10 @@ services:
       - NET_ADMIN
     restart: unless-stopped
     environment:
-      - TZ=Europe/London
-      - WEBPASSWORD=${PIHOLE_WEBPASSWORD}
+      - TZ=${TZ}
+      - FTLCONF_webserver_api_password=${PIHOLE_WEBPASSWORD}
+      - FTLCONF_dns_listeningMode=ALL
+      - FTLCONF_misc_etc_dnsmasq_d=true
     ports:
       - "53:53/tcp"
       - "53:53/udp"
