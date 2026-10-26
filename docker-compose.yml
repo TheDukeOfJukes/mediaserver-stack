@@ -1,0 +1,359 @@
+services:
+  traefik:
+    image: traefik:v3.6
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.media.internal`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    cpuset: "0,1"
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - /opt/mediaserver/jellyfin:/config
+      - /mnt/media/:/data/media
+      - /mnt/media/transcodes:/transcode
+    ports:
+      - "8096:8096"
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "991"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.media.internal`)"
+      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    cpuset: "2,3"
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      - WEBUI_PORT=8080
+    volumes:
+      - /opt/mediaserver/qbittorrent:/config
+      - /mnt/media:/data/media
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider https://1.1.1.1 || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "deunhealth.restart.on.unhealthy=true"
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: unless-stopped
+    environment:
+      - PROWLARR__SERVER__ALLOWEDHOSTS=prowlarr.media.internal,prowlarr,localhost,172.17.0.1,192.168.0.177
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - /opt/mediaserver/prowlarr:/config
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider https://1.1.1.1 || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "deunhealth.restart.on.unhealthy=true"
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      - RADARR__SERVER__ALLOWEDHOSTS=radarr.media.internal,radarr,localhost,172.17.0.1,192.168.0.177
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - /opt/mediaserver/radarr:/config
+      - /mnt/media:/data/media
+    ports:
+      - "7878:7878"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.radarr.rule=Host(`radarr.media.internal`)"
+      - "traefik.http.services.radarr.loadbalancer.server.port=7878"
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    environment:
+      - SONARR__SERVER__ALLOWEDHOSTS=sonarr.media.internal,sonarr,localhost,172.17.0.1,192.168.0.177
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - /opt/mediaserver/sonarr:/config
+      - /mnt/media:/data/media
+    ports:
+      - "8989:8989"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.media.internal`)"
+      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - /opt/mediaserver/bazarr:/config
+      - /mnt/media:/data/media
+    ports:
+      - "6767:6767"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bazarr.rule=Host(`bazarr.media.internal`)"
+      - "traefik.http.services.bazarr.loadbalancer.server.port=6767"
+
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pi_hole
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/London
+      - WEBPASSWORD=mediaadmin
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "8082:80/tcp"
+    volumes:
+      - /opt/mediaserver/pihole/etc-pihole:/etc/pihole
+      - /opt/mediaserver/pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pihole.rule=Host(`pihole.media.internal`)"
+      - "traefik.http.services.pihole.loadbalancer.server.port=80"
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=info
+      - TZ=Europe/London
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider https://1.1.1.1 || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "deunhealth.restart.on.unhealthy=true"
+
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    cpuset: "2,3"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - VPN_SERVICE_PROVIDER=mullvad
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=QLXiaSOquaSUu6NVzf5Le3OLpKpvy7wYjovh2rZnIH4=
+      - WIREGUARD_ADDRESSES=10.71.181.147/32
+      - SERVER_COUNTRIES=Netherlands
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,172.16.0.0/12
+      - WIREGUARD_MTU=1280
+    ports:
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+      - "8191:8191"
+      - "9696:9696"
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.qbittorrent.rule=Host(`qbittorrent.media.internal`)"
+      - "traefik.http.routers.qbittorrent.service=qbittorrent"
+      - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
+      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.media.internal`)"
+      - "traefik.http.routers.prowlarr.service=prowlarr"
+      - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    user: "1000:1000"
+    volumes:
+      - /opt/mediaserver/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - /opt/mediaserver/prometheus/data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=5GB'
+    ports:
+      - "9090:9090"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.media.internal`)"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    restart: unless-stopped
+    user: "1000:1000"
+    volumes:
+      - /opt/mediaserver/grafana:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.media.internal`)"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    command:
+      - "--docker_only=true"
+      - "--housekeeping_interval=30s"
+      - "--disable_metrics=percpu,sched,tcp,udp,disk,diskIO,hugetlb,referenced_memory"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+
+  deunhealth:
+    image: qmcgaw/deunhealth:latest
+    container_name: deunhealth
+    network_mode: "none"
+    environment:
+      - LOG_LEVEL=info
+      - HEALTH_SERVER_ADDRESS=127.0.0.1:9999
+      - TZ=Europe/London
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /opt/mediaserver/dozzle:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dozzle.rule=Host(`logs.media.internal`)"
+      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
+
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      - HOMEPAGE_ALLOWED_HOSTS=home.media.internal,192.168.0.177
+    volumes:
+      - /opt/mediaserver/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homepage.rule=Host(`home.media.internal`)"
+      - "traefik.http.services.homepage.loadbalancer.server.port=3000"
+
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    container_name: seerr
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      - TZ=Europe/London
+    volumes:
+      - /opt/mediaserver/seerr:/app/config
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.seerr.rule=Host(`requests.media.internal`)"
+      - "traefik.http.services.seerr.loadbalancer.server.port=5055"
+
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:8
+    container_name: recyclarr
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      - TZ=Europe/London
+      - CRON_SCHEDULE=@daily
+    volumes:
+      - /opt/mediaserver/recyclarr:/config
+
+networks:
+  default:
+    name: media_network
+    driver: bridge

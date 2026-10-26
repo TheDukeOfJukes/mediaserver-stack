@@ -1,0 +1,17 @@
+# Ignore all container appdata directories and logs by default
+*/
+*.log
+
+# Secret environment variables (if you separate passwords into a .env file later)
+.env
+
+# Whitelist static text configs you want to keep in Git
+!prometheus/
+prometheus/*
+!prometheus/prometheus.yml
+
+!pihole/
+pihole/*
+!pihole/etc-dnsmasq.d/
+pihole/etc-dnsmasq.d/*
+!pihole/etc-dnsmasq.d/02-local-wildcard.conf
