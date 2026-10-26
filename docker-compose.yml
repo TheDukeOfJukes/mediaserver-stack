@@ -1,6 +1,6 @@
 services:
   traefik:
-    image: traefik:v3.6
+    image: traefik:v3.7
     container_name: traefik
     restart: unless-stopped
     command:
@@ -197,7 +197,7 @@ services:
     environment:
       - VPN_SERVICE_PROVIDER=mullvad
       - VPN_TYPE=wireguard
-      - WIREGUARD_PRIVATE_KEY={MULLVAD_PRIVATE_KEY}
+      - WIREGUARD_PRIVATE_KEY=${MULLVAD_PRIVATE_KEY}
       - WIREGUARD_ADDRESSES=10.71.181.147/32
       - SERVER_COUNTRIES=Netherlands
       - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,172.16.0.0/12
