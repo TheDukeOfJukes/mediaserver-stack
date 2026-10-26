@@ -154,7 +154,7 @@ services:
     restart: unless-stopped
     environment:
       - TZ=Europe/London
-      - WEBPASSWORD=mediaadmin
+      - WEBPASSWORD=${PIHOLE_WEBPASSWORD}
     ports:
       - "53:53/tcp"
       - "53:53/udp"
@@ -197,7 +197,7 @@ services:
     environment:
       - VPN_SERVICE_PROVIDER=mullvad
       - VPN_TYPE=wireguard
-      - WIREGUARD_PRIVATE_KEY=QLXiaSOquaSUu6NVzf5Le3OLpKpvy7wYjovh2rZnIH4=
+      - WIREGUARD_PRIVATE_KEY={MULLVAD_PRIVATE_KEY}
       - WIREGUARD_ADDRESSES=10.71.181.147/32
       - SERVER_COUNTRIES=Netherlands
       - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,172.16.0.0/12
