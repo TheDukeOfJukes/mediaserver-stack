@@ -1,0 +1,5 @@
+# Every Sunday at 03:00 AM - Back up SSD configs & databases to the 4TB HDD
+0 3 * * 0 /usr/local/bin/backup-mediaserver.sh
+
+# Every Sunday at 04:00 AM - Delete dangling/old Docker images to save SSD space
+0 4 * * 0 /usr/bin/docker image prune -f > /dev/null 2>&1
