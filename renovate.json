@@ -1,11 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base",
+    "config:recommended",
     ":preserveSemverRanges"
   ],
   "docker-compose": {
-    "fileMatch": ["docker-compose\\.yml$"]
+    "managerFilePatterns": [
+      "/docker-compose\\.yml$/"
+    ]
   },
   "packageRules": [
     {
