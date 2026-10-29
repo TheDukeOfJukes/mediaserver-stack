@@ -4,16 +4,20 @@ DATE=$(date +%F)
 
 mkdir -p "$BACKUP_DIR"
 
-# -C / steps into root first so paths don't need a leading '/'
+# Archive the real SSD path (mnt/ssd/mediaserver) plus host OS configs
 tar -czf "$BACKUP_DIR/mediaserver-config-$DATE.tar.gz" \
   --warning=no-file-changed \
-  --exclude="opt/mediaserver/jellyfin/cache" \
-  --exclude="opt/mediaserver/jellyfin/data/transcodes" \
-  --exclude="opt/mediaserver/jellyfin/data/metadata/library" \
-  --exclude="opt/mediaserver/prometheus/data" \
+  --exclude="mnt/ssd/mediaserver/jellyfin/cache" \
+  --exclude="mnt/ssd/mediaserver/jellyfin/data/transcodes" \
+  --exclude="mnt/ssd/mediaserver/jellyfin/data/metadata/library" \
+  --exclude="mnt/ssd/mediaserver/prometheus/data" \
   -C / \
+  mnt/ssd/mediaserver \
   opt/mediaserver \
   etc/fstab \
-  etc/docker/daemon.json
+  etc/docker/daemon.json \
+  etc/sysctl.d/99-mediaserver-io.conf \
+  etc/udev/rules.d/60-ioschedulers.rules \
+  etc/modules-load.d/bfq.conf
 
 find "$BACKUP_DIR" -type f -name "mediaserver-config-*.tar.gz" -mtime +30 -delete

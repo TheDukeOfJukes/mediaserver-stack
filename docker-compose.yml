@@ -22,6 +22,9 @@ services:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     cpuset: "0,1"
+    cpu_shares: 2048
+    blkio_config:
+      weight: 800
     restart: unless-stopped
     environment:
       - PUID=1000
@@ -46,6 +49,17 @@ services:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     cpuset: "2,3"
+    cpu_shares: 256
+    mem_limit: 1536m
+    memswap_limit: 2g
+    blkio_config:
+      weight: 100
+      device_write_bps:
+        - path: /dev/disk/by-id/usb-WD_Elements_SE_2623_575847324443353248305654-0:0
+          rate: '20mb'
+      device_write_iops:
+        - path: /dev/disk/by-id/usb-WD_Elements_SE_2623_575847324443353248305654-0:0
+          rate: 150
     restart: unless-stopped
     environment:
       - PUID=1000
@@ -93,6 +107,8 @@ services:
   radarr:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
+    blkio_config:
+      weight: 300
     restart: unless-stopped
     environment:
       - RADARR__SERVER__ALLOWEDHOSTS=radarr.media.internal,radarr,localhost,172.17.0.1,192.168.0.177
@@ -112,6 +128,8 @@ services:
   sonarr:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
+    blkio_config:
+      weight: 300
     restart: unless-stopped
     environment:
       - SONARR__SERVER__ALLOWEDHOSTS=sonarr.media.internal,sonarr,localhost,172.17.0.1,192.168.0.177
@@ -149,6 +167,8 @@ services:
   pihole:
     image: pihole/pihole:latest
     container_name: pi_hole
+    blkio_config:
+      weight: 900
     cap_add:
       - NET_ADMIN
     restart: unless-stopped
@@ -172,6 +192,7 @@ services:
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
+    mem_limit: 512m
     restart: unless-stopped
     environment:
       - LOG_LEVEL=info
@@ -281,7 +302,7 @@ services:
     command:
       - "--docker_only=true"
       - "--housekeeping_interval=30s"
-      - "--disable_metrics=percpu,sched,tcp,udp,disk,diskIO,hugetlb,referenced_memory"
+      - "--disable_metrics=percpu,sched,tcp,udp,hugetlb,referenced_memory"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -333,6 +354,7 @@ services:
   seerr:
     image: ghcr.io/seerr-team/seerr:latest
     container_name: seerr
+    mem_limit: 512m
     restart: unless-stopped
     user: "1000:1000"
     ports:
