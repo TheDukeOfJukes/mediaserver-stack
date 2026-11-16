@@ -57,8 +57,12 @@ services:
       device_write_bps:
         - path: /dev/disk/by-id/usb-WD_Elements_SE_2623_575847324443353248305654-0:0
           rate: '20mb'
+        - path: /dev/disk/by-id/usb-Seagate_Portable_NT3GBVA0-0:0
+          rate: '20mb'
       device_write_iops:
         - path: /dev/disk/by-id/usb-WD_Elements_SE_2623_575847324443353248305654-0:0
+          rate: 150
+        - path: /dev/disk/by-id/usb-Seagate_Portable_NT3GBVA0-0:0
           rate: 150
     restart: unless-stopped
     environment:
