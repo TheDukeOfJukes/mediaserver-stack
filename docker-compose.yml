@@ -59,11 +59,6 @@ services:
           rate: '20mb'
         - path: /dev/disk/by-id/usb-Seagate_Portable_NT3GBVA0-0:0
           rate: '20mb'
-      device_write_iops:
-        - path: /dev/disk/by-id/usb-WD_Elements_SE_2623_575847324443353248305654-0:0
-          rate: 150
-        - path: /dev/disk/by-id/usb-Seagate_Portable_NT3GBVA0-0:0
-          rate: 150
     restart: unless-stopped
     environment:
       - PUID=1000
@@ -222,17 +217,19 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
     environment:
-      - VPN_SERVICE_PROVIDER=mullvad
+      - VPN_SERVICE_PROVIDER=protonvpn
       - VPN_TYPE=wireguard
-      - WIREGUARD_PRIVATE_KEY=${MULLVAD_PRIVATE_KEY}
-      - WIREGUARD_ADDRESSES=10.71.181.147/32
+      - WIREGUARD_PRIVATE_KEY=${PROTON_PRIVATE_KEY}
       - SERVER_COUNTRIES=Netherlands
+      - PORT_FORWARD_ONLY=on
+      - VPN_PORT_FORWARDING=on
+      - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":{{PORT}},\"current_network_interface\":\"{{VPN_INTERFACE}}\",\"random_port\":false,\"upnp\":false}" http://127.0.0.1:8080/api/v2/app/setPreferences 2>&1'
+      - VPN_PORT_FORWARDING_DOWN_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo\"}" http://127.0.0.1:8080/api/v2/app/setPreferences 2>&1'
       - FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/16,172.16.0.0/12
       - WIREGUARD_MTU=1280
+      - 'HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE={"auth":"apikey","apikey":"${GLUETUN_API_KEY}"}'
     ports:
       - "8080:8080"
-      - "6881:6881"
-      - "6881:6881/udp"
       - "8191:8191"
       - "9696:9696"
     restart: unless-stopped
@@ -297,7 +294,7 @@ services:
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: ghcr.io/google/cadvisor:v0.60.6
     container_name: cadvisor
     restart: unless-stopped
     privileged: true
@@ -305,13 +302,15 @@ services:
       - /dev/kmsg
     command:
       - "--docker_only=true"
+      - "--docker_root=/mnt/ssd/docker"
       - "--housekeeping_interval=30s"
       - "--disable_metrics=percpu,sched,tcp,udp,hugetlb,referenced_memory"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
+      - /mnt/ssd/docker:/mnt/ssd/docker:ro
+      - /var/lib/containerd:/var/lib/containerd:ro
       - /dev/disk/:/dev/disk:ro
 
   deunhealth:
@@ -382,6 +381,22 @@ services:
       - CRON_SCHEDULE=@daily
     volumes:
       - /opt/mediaserver/recyclarr:/config
+
+  gluetun-webui:
+    image: scuzza/gluetun-webui:latest
+    container_name: gluetun-webui
+    restart: unless-stopped
+    environment:
+      - GLUETUN_CONTROL_URL=http://gluetun:8000
+      - GLUETUN_API_KEY=${GLUETUN_API_KEY}
+      - TRUST_PROXY=true
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gluetun-webui.rule=Host(`vpn.media.internal`)"
+      - "traefik.http.services.gluetun-webui.loadbalancer.server.port=3000"
 
 networks:
   default:
